@@ -33,31 +33,27 @@ export function extractAudio(videoPath: string, tempDir: string): string {
 
 export function transcribeAudio(audioPath: string, tempDir: string): string {
   const transcriptPath = path.join(tempDir, 'transcript.txt');
+  const scriptPath = path.join(process.cwd(), 'scripts', 'transcribe.py');
 
-  log.step('Transcribing audio with Whisper');
+  log.step('Transcribing audio with faster-whisper');
   log.info(`Input: ${audioPath}`);
-  log.info(`Model: base`);
+  log.info(`Model: base (int8)`);
   log.info(`This may take several minutes depending on video length...`);
 
   try {
     execSync(
-      `whisper "${audioPath}" --model base --output_dir "${tempDir}" --output_format txt --word_timestamps True`,
+      `python3 "${scriptPath}" "${audioPath}" "${transcriptPath}"`,
       { stdio: 'inherit' }
     );
   } catch {
-    log.error('Whisper transcription failed. Ensure openai-whisper is installed: pip install openai-whisper');
+    log.error('Whisper transcription failed.');
     throw new Error('Whisper transcription failed');
   }
 
-  const whisperOutput = path.join(tempDir, 'audio.txt');
-
-  if (!fs.existsSync(whisperOutput)) {
-    log.error(`Whisper did not produce audio.txt in temp/`);
-    throw new Error('Whisper output audio.txt not found');
+  if (!fs.existsSync(transcriptPath)) {
+    log.error(`Transcript not found at: ${transcriptPath}`);
+    throw new Error('Transcript not found after whisper');
   }
-
-  fs.renameSync(whisperOutput, transcriptPath);
-  log.info(`Renamed audio.txt → transcript.txt`);
 
   const content = fs.readFileSync(transcriptPath, 'utf-8');
   const wordCount = content.split(/\s+/).filter(Boolean).length;
