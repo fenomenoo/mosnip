@@ -18,17 +18,13 @@ export function downloadVideo(input: string, tempDir: string): string {
   if (!isUrl) {
     const absPath = path.resolve(input);
     log.info(`Input detected as local file: ${absPath}`);
-
     if (!fs.existsSync(absPath)) {
       log.error(`Local file not found: ${absPath}`);
       throw new Error(`Local file not found: ${absPath}`);
     }
-
     const ext = path.extname(absPath) || '.mp4';
     const destPath = path.join(tempDir, `video${ext}`);
     log.step(`Copying local file to temp/`);
-    log.info(`Source: ${absPath}`);
-    log.info(`Destination: ${destPath}`);
     fs.copyFileSync(absPath, destPath);
     log.success(`Local file ready at: ${destPath}`);
     return destPath;
@@ -37,7 +33,12 @@ export function downloadVideo(input: string, tempDir: string): string {
   log.step(`Downloading video from URL`);
   log.info(`URL: ${input}`);
 
-  const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+  try {
+    execSync('yt-dlp --version', { stdio: 'pipe' });
+  } catch {
+    log.error('yt-dlp binary not found in PATH');
+    throw new Error('yt-dlp not installed');
+  }
 
   let cookiesFlag = '';
   const ytCookies = process.env.YOUTUBE_COOKIES;
@@ -46,24 +47,24 @@ export function downloadVideo(input: string, tempDir: string): string {
     fs.writeFileSync(cookiesPath, ytCookies, 'utf-8');
     cookiesFlag = `--cookies "${cookiesPath}"`;
     log.info('Using YouTube cookies for authentication');
-  } else {
-    log.warn('YOUTUBE_COOKIES env var not set — download may fail on cloud IPs');
   }
 
-  const playerClient = ytCookies ? 'web' : 'ios';
-  const cmd = `yt-dlp ${cookiesFlag} --extractor-args "youtube:player_client=${playerClient}" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
-
-  log.info(`Running yt-dlp...`);
-
-  try {
-    execSync('yt-dlp --version', { stdio: 'pipe' });
-  } catch {
-    log.error('yt-dlp binary not found in PATH — check Dockerfile installation');
-    throw new Error('yt-dlp not installed');
+  let proxyFlag = '';
+  const proxy = process.env.YTDLP_PROXY;
+  if (proxy) {
+    proxyFlag = `--proxy "${proxy}"`;
+    log.info('Using proxy for URL resolution');
   }
 
+  // Use proxy+cookies only to resolve the signed video URL (few KB of data)
+  // Then download the actual video directly — zero proxy bandwidth for the video itself
+  log.info('Resolving direct download URL...');
+  let directUrl: string;
   try {
-    execSync(cmd, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 10 * 1024 * 1024 });
+    const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --get-url -f "best[ext=mp4]/best[height<=1080]" "${input}"`;
+    const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
+    directUrl = output.split('\n')[0];
+    log.info('Download URL resolved');
   } catch (err) {
     const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
     const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
@@ -72,11 +73,20 @@ export function downloadVideo(input: string, tempDir: string): string {
     throw new Error('yt-dlp download failed');
   }
 
+  // Download the video directly from YouTube's CDN (no proxy needed here)
   const videoPath = path.join(tempDir, 'video.mp4');
+  log.info('Downloading video file...');
+  try {
+    execSync(`curl -L -o "${videoPath}" "${directUrl}"`, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 5 * 1024 * 1024 });
+  } catch (err) {
+    const e = err as { stderr?: Buffer; message?: string };
+    log.error(`curl download failed: ${e.stderr?.toString()?.trim() || e.message}`);
+    throw new Error('Video download failed');
+  }
 
   if (!fs.existsSync(videoPath)) {
-    log.error(`Expected video.mp4 not found in temp/ after download.`);
-    throw new Error('video.mp4 not found after yt-dlp download');
+    log.error('video.mp4 not found after download');
+    throw new Error('video.mp4 not found after download');
   }
 
   const stats = fs.statSync(videoPath);
