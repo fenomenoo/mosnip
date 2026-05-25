@@ -50,7 +50,8 @@ export function downloadVideo(input: string, tempDir: string): string {
     log.warn('YOUTUBE_COOKIES env var not set — download may fail on cloud IPs');
   }
 
-  const cmd = `yt-dlp ${cookiesFlag} --extractor-args "youtube:player_client=ios" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
+  const playerClient = ytCookies ? 'web' : 'ios';
+  const cmd = `yt-dlp ${cookiesFlag} --extractor-args "youtube:player_client=${playerClient}" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
 
   log.info(`Running yt-dlp...`);
 
