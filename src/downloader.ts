@@ -49,39 +49,45 @@ export function downloadVideo(input: string, tempDir: string): string {
     log.info('Using YouTube cookies for authentication');
   }
 
-  let proxyFlag = '';
   const proxy = process.env.YTDLP_PROXY;
-  if (proxy) {
-    proxyFlag = `--proxy "${proxy}"`;
-    log.info('Using proxy for URL resolution');
-  }
-
-  // Use proxy+cookies only to resolve the signed video URL (few KB of data)
-  // Then download the actual video directly — zero proxy bandwidth for the video itself
-  log.info('Resolving direct download URL...');
-  let directUrl: string;
-  try {
-    const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --get-url -f "best[ext=mp4]/best[height<=1080]" "${input}"`;
-    const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
-    directUrl = output.split('\n')[0];
-    log.info('Download URL resolved');
-  } catch (err) {
-    const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
-    const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
-    const lastLines = combined.split('\n').slice(-30).join('\n');
-    log.error(`yt-dlp failed:\n${lastLines || e.message || '(no output)'}`);
-    throw new Error('yt-dlp download failed');
-  }
-
-  // Download the video directly from YouTube's CDN (no proxy needed here)
   const videoPath = path.join(tempDir, 'video.mp4');
-  log.info('Downloading video file...');
-  try {
-    execSync(`curl -L -o "${videoPath}" "${directUrl}"`, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 5 * 1024 * 1024 });
-  } catch (err) {
-    const e = err as { stderr?: Buffer; message?: string };
-    log.error(`curl download failed: ${e.stderr?.toString()?.trim() || e.message}`);
-    throw new Error('Video download failed');
+
+  if (proxy) {
+    // Cloud mode: proxy only for URL resolution, download video directly (saves bandwidth)
+    log.info('Using proxy for URL resolution');
+    const proxyFlag = `--proxy "${proxy}"`;
+    log.info('Resolving direct download URL...');
+    let directUrl: string;
+    try {
+      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --get-url -f "best[ext=mp4]/best[height<=1080]" "${input}"`;
+      const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
+      directUrl = output.split('\n')[0];
+      log.info('Download URL resolved — fetching video directly');
+    } catch (err) {
+      const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
+      const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
+      log.error(`yt-dlp failed:\n${combined.split('\n').slice(-30).join('\n') || e.message}`);
+      throw new Error('yt-dlp download failed');
+    }
+    try {
+      execSync(`curl -L -o "${videoPath}" "${directUrl}"`, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 5 * 1024 * 1024 });
+    } catch (err) {
+      const e = err as { stderr?: Buffer; message?: string };
+      log.error(`curl download failed: ${e.stderr?.toString()?.trim() || e.message}`);
+      throw new Error('Video download failed');
+    }
+  } else {
+    // Local mode: yt-dlp handles everything directly (best quality, no proxy needed)
+    log.info('Running yt-dlp (local mode)...');
+    const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+    const cmd = `yt-dlp ${cookiesFlag} -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
+    try {
+      execSync(cmd, { stdio: 'inherit' });
+    } catch (err) {
+      const e = err as { message?: string };
+      log.error(`yt-dlp failed: ${e.message ?? '(no output)'}`);
+      throw new Error('yt-dlp download failed');
+    }
   }
 
   if (!fs.existsSync(videoPath)) {
