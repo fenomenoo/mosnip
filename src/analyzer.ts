@@ -28,7 +28,8 @@ Rules:
 - Sort by virality_score descending (highest first)
 - Each clip must be at least 15 seconds and at most 90 seconds long
 - Clips must not overlap
-- Return exactly 5 clips if possible, fewer only if the content is too short
+- Return up to 10 clips — for longer videos (30+ min) aim for 8-10 clips, for shorter videos return as many strong moments as exist
+- Spread clips across the full duration of the video, not just the beginning
 
 Example of valid response format:
 [{"start":12.5,"end":45.2,"title":"Shocking Reveal Moment","reason":"Unexpected twist that drives shares","virality_score":9},{"start":90.0,"end":130.0,"title":"Hilarious Reaction","reason":"Relatable and funny","virality_score":7}]`;
@@ -114,7 +115,7 @@ export async function analyzeTranscript(transcriptPath: string): Promise<ClipMom
   }
 
   clips.sort((a, b) => b.virality_score - a.virality_score);
-  clips = clips.slice(0, 5);
+  clips = clips.slice(0, 10);
 
   log.success(`Identified ${clips.length} viral clip moments:`);
   clips.forEach((clip, idx) => {
