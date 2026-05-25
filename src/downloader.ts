@@ -38,7 +38,7 @@ export function downloadVideo(input: string, tempDir: string): string {
   log.info(`URL: ${input}`);
 
   const outputTemplate = path.join(tempDir, 'video.%(ext)s');
-  const cmd = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
+  const cmd = `yt-dlp --js-runtimes node -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
 
   log.info(`Running yt-dlp...`);
 
