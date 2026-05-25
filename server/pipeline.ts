@@ -6,8 +6,9 @@ import { downloadVideo } from '../src/downloader';
 import { runTranscription } from '../src/transcriber';
 import { analyzeTranscript } from '../src/analyzer';
 import { cutAllClips } from '../src/clipper';
+import { ClipOptions, DEFAULT_OPTIONS } from '../src/types';
 
-export async function runPipeline(job: Job): Promise<void> {
+export async function runPipeline(job: Job, options: ClipOptions = DEFAULT_OPTIONS): Promise<void> {
   const tempDir = path.resolve(process.cwd(), 'temp', job.id);
 
   await logEmitter.run(job.emitter, async () => {
@@ -15,16 +16,15 @@ export async function runPipeline(job: Job): Promise<void> {
 
     try {
       const videoPath = downloadVideo(job.input, tempDir);
-      const transcriptPath = runTranscription(videoPath, tempDir);
+      const { transcriptPath, srtPath } = runTranscription(videoPath, tempDir);
       const clips = await analyzeTranscript(transcriptPath);
 
       if (clips.length === 0) {
         throw new Error('No viral clips identified from transcript');
       }
 
-      const outputPaths = await cutAllClips(videoPath, clips);
+      const outputPaths = await cutAllClips(videoPath, clips, srtPath, options, tempDir);
 
-      // Cleanup job temp dir
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -40,7 +40,6 @@ export async function runPipeline(job: Job): Promise<void> {
       setClips(job, outputClips);
       setStatus(job, 'done');
     } catch (err) {
-      // Cleanup on error
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }

@@ -6,6 +6,17 @@ export interface ClipMoment {
   virality_score: number;
 }
 
-export interface PipelineOptions {
-  input: string;
+export type ClipFormat = 'original' | 'portrait';
+export type ClipQuality = 'best' | '1080p' | '720p';
+
+export interface ClipOptions {
+  format: ClipFormat;
+  quality: ClipQuality;
+  captions: boolean;
 }
+
+export const DEFAULT_OPTIONS: ClipOptions = {
+  format: 'original',
+  quality: 'best',
+  captions: false,
+};

@@ -1,24 +1,36 @@
 import { Router, Request, Response } from 'express';
 import { createJob, getJob, setStatus, LogEntry } from '../jobManager';
 import { runPipeline } from '../pipeline';
+import { ClipOptions, ClipFormat, ClipQuality, DEFAULT_OPTIONS } from '../../src/types';
 
 const router = Router();
 
 router.post('/', (req: Request, res: Response) => {
-  const { input } = req.body as { input?: string };
+  const { input, format, quality, captions } = req.body as {
+    input?: string;
+    format?: string;
+    quality?: string;
+    captions?: boolean;
+  };
+
   if (!input || !input.trim()) {
     res.status(400).json({ error: 'input is required' });
     return;
   }
 
+  const options: ClipOptions = {
+    format: (format === 'portrait' ? 'portrait' : 'original') as ClipFormat,
+    quality: (['720p', '1080p'].includes(quality ?? '') ? quality : 'best') as ClipQuality,
+    captions: captions === true,
+  };
+
   const job = createJob(input.trim());
 
-  // Wire up log forwarding into job.logs so late-joining SSE clients get history
   job.emitter.on('log', (entry: LogEntry) => {
     job.logs.push(entry);
   });
 
-  runPipeline(job).catch((err) => {
+  runPipeline(job, options).catch((err) => {
     setStatus(job, 'error', err instanceof Error ? err.message : String(err));
   });
 
@@ -27,10 +39,7 @@ router.post('/', (req: Request, res: Response) => {
 
 router.get('/:id/stream', (req: Request, res: Response) => {
   const job = getJob(req.params.id);
-  if (!job) {
-    res.status(404).json({ error: 'Job not found' });
-    return;
-  }
+  if (!job) { res.status(404).json({ error: 'Job not found' }); return; }
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -40,9 +49,7 @@ router.get('/:id/stream', (req: Request, res: Response) => {
 
   const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
-  // Replay existing logs for clients that connect after job started
   job.logs.forEach((entry) => send({ type: 'log', ...entry }));
-
   if (job.clips.length > 0) send({ type: 'clips', clips: job.clips });
 
   if (job.status === 'done' || job.status === 'error') {
@@ -71,10 +78,7 @@ router.get('/:id/stream', (req: Request, res: Response) => {
 
 router.get('/:id', (req: Request, res: Response) => {
   const job = getJob(req.params.id);
-  if (!job) {
-    res.status(404).json({ error: 'Job not found' });
-    return;
-  }
+  if (!job) { res.status(404).json({ error: 'Job not found' }); return; }
   res.json({ id: job.id, status: job.status, clips: job.clips, error: job.error });
 });
 

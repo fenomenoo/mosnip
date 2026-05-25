@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import UrlInput from './components/UrlInput';
+import UrlInput, { type SubmitOptions } from './components/UrlInput';
 import JobProgress from './components/JobProgress';
 import ClipCard from './components/ClipCard';
 
@@ -30,7 +30,7 @@ export default function App() {
 
   useEffect(() => () => esRef.current?.close(), []);
 
-  async function handleSubmit(input: string) {
+  async function handleSubmit({ input, format, quality, captions }: SubmitOptions) {
     esRef.current?.close();
     setPhase('processing'); setLogs([]); setClips([]); setError('');
 
@@ -39,7 +39,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ input, format, quality, captions }),
       });
       if (!res.ok) {
         const d = await res.json() as { error?: string };
