@@ -37,9 +37,10 @@ export function transcribeAudio(audioPath: string, tempDir: string): { transcrip
   log.info(`Model: base (int8)`);
   log.info(`This may take several minutes depending on video length...`);
 
+  const python = process.platform === 'win32' ? 'python' : 'python3';
   try {
     execSync(
-      `python3 "${scriptPath}" "${audioPath}" "${transcriptPath}"`,
+      `${python} "${scriptPath}" "${audioPath}" "${transcriptPath}"`,
       { stdio: 'inherit' }
     );
   } catch {
