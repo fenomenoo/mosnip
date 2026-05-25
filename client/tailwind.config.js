@@ -4,14 +4,14 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
-        mono: ['Space Mono', 'monospace'],
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        mono: ['DM Mono', 'monospace'],
       },
       colors: {
-        cream:    '#F7F2EA',
-        parchment:'#EDE5D8',
-        linen:    '#E8DDD0',
-        sand:     '#D4C5B0',
+        cream:    '#FAFAF8',
+        parchment:'#F2F0EC',
+        linen:    '#ECEAE5',
+        sand:     '#D8D4CC',
         brown: {
           100: '#EDE5D8',
           200: '#D4C5B0',

@@ -119,7 +119,7 @@ export default function App() {
             <div className="inline-flex items-center gap-2 text-xs font-mono text-brown-500
               border border-brown-200 rounded-full px-3 py-1.5 bg-parchment shadow-warm-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-yt-red" />
-              Claude AI · Whisper · FFmpeg
+              Whisper · FFmpeg · Auto-cut
             </div>
 
             <div className="space-y-4">
@@ -138,7 +138,7 @@ export default function App() {
             <div className="flex items-center justify-center gap-10 pt-2">
               {[
                 ['Up to 10', 'clips per video'],
-                ['AI scored', 'virality'],
+                ['Auto scored', 'virality'],
                 ['Auto cut', 'no editing'],
               ].map(([val, label]) => (
                 <div key={val} className="text-center">
@@ -200,7 +200,7 @@ export default function App() {
       <footer className="relative z-10 border-t border-sand/60 mt-24">
         <div className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between text-xs font-mono text-brown-300">
           <span>mosnip v1.0</span>
-          <span>claude-sonnet-4 · whisper-base · ffmpeg</span>
+          <span>whisper-base · ffmpeg · auto-cut</span>
         </div>
       </footer>
     </div>
