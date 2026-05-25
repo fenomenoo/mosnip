@@ -38,7 +38,19 @@ export function downloadVideo(input: string, tempDir: string): string {
   log.info(`URL: ${input}`);
 
   const outputTemplate = path.join(tempDir, 'video.%(ext)s');
-  const cmd = `yt-dlp --extractor-args "youtube:player_client=ios" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
+
+  let cookiesFlag = '';
+  const ytCookies = process.env.YOUTUBE_COOKIES;
+  if (ytCookies) {
+    const cookiesPath = '/tmp/yt-cookies.txt';
+    fs.writeFileSync(cookiesPath, ytCookies, 'utf-8');
+    cookiesFlag = `--cookies "${cookiesPath}"`;
+    log.info('Using YouTube cookies for authentication');
+  } else {
+    log.warn('YOUTUBE_COOKIES env var not set — download may fail on cloud IPs');
+  }
+
+  const cmd = `yt-dlp ${cookiesFlag} --extractor-args "youtube:player_client=ios" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
 
   log.info(`Running yt-dlp...`);
 
