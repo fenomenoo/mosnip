@@ -1,40 +1,46 @@
-FROM node:20-slim
+FROM node:20-bookworm-slim
 
-# System dependencies: Python, pip, ffmpeg, curl
+# System dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-venv \
     ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install yt-dlp binary
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+    -o /usr/local/bin/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp
 
-# Install openai-whisper
-RUN pip3 install openai-whisper --break-system-packages
+# Create venv for Python packages (avoids --break-system-packages issues)
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install openai-whisper inside venv
+RUN pip install --upgrade pip && pip install openai-whisper
 
 # Pre-download Whisper base model so first job doesn't stall
 RUN python3 -c "import whisper; whisper.load_model('base')"
 
 WORKDIR /app
 
-# Install server deps
+# Install ALL node deps (including devDeps needed for tsc)
 COPY package*.json ./
-RUN npm ci --omit=dev && npm install typescript ts-node @types/node @types/express @types/cors @types/fluent-ffmpeg
+RUN npm ci
 
 # Install and build client
 COPY client/package*.json ./client/
 RUN cd client && npm ci
-
 COPY client/ ./client/
 RUN cd client && npm run build
 
-# Copy server source and compile
+# Copy source and compile TypeScript
 COPY . .
 RUN npx tsc
 
-EXPOSE 3000
+# Prune dev deps after build
+RUN npm prune --omit=dev
 
+EXPOSE 3000
 CMD ["node", "dist/server/index.js"]
