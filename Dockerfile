@@ -1,10 +1,7 @@
 FROM node:20-bookworm-slim
 
-# System dependencies
+# System dependencies — no Python/Whisper to keep image small enough for Railway
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
     ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -12,16 +9,6 @@ RUN apt-get update && apt-get install -y \
 # Install yt-dlp binary
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
     -o /usr/local/bin/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp
-
-# Create venv for Python packages (avoids --break-system-packages issues)
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install openai-whisper inside venv
-RUN pip install --upgrade pip && pip install openai-whisper
-
-# Pre-download Whisper base model so first job doesn't stall
-RUN python3 -c "import whisper; whisper.load_model('base')"
 
 WORKDIR /app
 
