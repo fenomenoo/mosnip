@@ -38,7 +38,7 @@ export function downloadVideo(input: string, tempDir: string): string {
   log.info(`URL: ${input}`);
 
   const outputTemplate = path.join(tempDir, 'video.%(ext)s');
-  const cmd = `yt-dlp --js-runtimes nodejs -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
+  const cmd = `yt-dlp --extractor-args "youtube:player_client=ios" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
 
   log.info(`Running yt-dlp...`);
 
@@ -50,10 +50,10 @@ export function downloadVideo(input: string, tempDir: string): string {
   }
 
   try {
-    execSync(cmd, { stdio: ['inherit', 'pipe', 'pipe'] });
+    execSync(cmd, { stdio: 'inherit' });
   } catch (err) {
-    const e = err as { stderr?: Buffer; stdout?: Buffer };
-    const detail = (e.stderr?.toString() || e.stdout?.toString() || '').trim().slice(0, 500);
+    const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
+    const detail = (e.stderr?.toString() || e.stdout?.toString() || e.message || '').trim().slice(0, 1000);
     log.error(`yt-dlp failed: ${detail || '(no output)'}`);
     throw new Error('yt-dlp download failed');
   }
