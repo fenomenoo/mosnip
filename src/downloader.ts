@@ -43,9 +43,18 @@ export function downloadVideo(input: string, tempDir: string): string {
   log.info(`Running yt-dlp...`);
 
   try {
-    execSync(cmd, { stdio: 'inherit' });
+    execSync('yt-dlp --version', { stdio: 'pipe' });
   } catch {
-    log.error('yt-dlp failed. Ensure yt-dlp is installed and in PATH.');
+    log.error('yt-dlp binary not found in PATH — check Dockerfile installation');
+    throw new Error('yt-dlp not installed');
+  }
+
+  try {
+    execSync(cmd, { stdio: ['inherit', 'pipe', 'pipe'] });
+  } catch (err) {
+    const e = err as { stderr?: Buffer; stdout?: Buffer };
+    const detail = (e.stderr?.toString() || e.stdout?.toString() || '').trim().slice(0, 500);
+    log.error(`yt-dlp failed: ${detail || '(no output)'}`);
     throw new Error('yt-dlp download failed');
   }
 
