@@ -37,7 +37,10 @@ RUN cd client && npm run build
 
 # Copy source and compile TypeScript
 COPY . .
-RUN npx tsc
+RUN npx tsc && test -f dist/server/index.js
+
+# Pre-create runtime dirs so container doesn't need to mkdir at startup
+RUN mkdir -p /app/output /app/temp
 
 # Prune dev deps after build
 RUN npm prune --omit=dev

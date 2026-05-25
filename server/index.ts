@@ -1,6 +1,15 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  process.exit(1);
+});
+
 import express from 'express';
 import cors from 'cors';
 import * as path from 'path';
@@ -8,14 +17,21 @@ import * as fs from 'fs';
 import jobRoutes from './routes/jobs';
 
 const app = express();
-const PORT = process.env.PORT ?? 3000;
+const PORT = parseInt(String(process.env.PORT ?? '3000'), 10);
+
+console.log(`[startup] PORT=${PORT}, cwd=${process.cwd()}`);
 
 app.use(cors());
 app.use(express.json());
 
 // Ensure output dir exists
 const outputDir = path.resolve(process.cwd(), 'output');
-if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+try {
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+  console.log(`[startup] output dir ready: ${outputDir}`);
+} catch (e) {
+  console.error(`[startup] failed to create output dir: ${e}`);
+}
 
 // API
 app.use('/api/jobs', jobRoutes);
@@ -35,10 +51,12 @@ if (fs.existsSync(clientDist)) {
   app.get('/', (_req, res) => res.send('Mosnip API running. Build the client with: cd client && npm run build'));
 }
 
-app.listen(PORT, () => {
-  console.log(`\nMosnip server running → http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`\nMosnip server running on port ${PORT}`);
   console.log(`API: http://localhost:${PORT}/api/jobs`);
-  if (!fs.existsSync(clientDist)) {
-    console.log(`Frontend not built. Run: cd client && npm install && npm run build`);
-  }
+});
+
+server.on('error', (err) => {
+  console.error('[FATAL] Server failed to bind:', err);
+  process.exit(1);
 });
