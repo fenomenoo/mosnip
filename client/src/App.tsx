@@ -102,7 +102,7 @@ export default function App() {
 
           {phase !== 'idle' && (
             <button onClick={handleReset}
-              className="text-sm text-brown-400 hover:text-brown-700 transition-colors flex items-center gap-1.5 font-medium">
+              className="text-sm text-brown-400 hover:text-brown-700 transition-colors flex items-center gap-1.5 font-medium cursor-pointer">
               ← New clip
             </button>
           )}
