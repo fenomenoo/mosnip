@@ -102,7 +102,7 @@ export default function App() {
 
           {phase !== 'idle' && (
             <button onClick={handleReset}
-              className="text-sm text-brown-400 hover:text-brown-700 transition-colors flex items-center gap-1.5 font-medium cursor-pointer">
+              className="text-sm text-brown-500 hover:text-brown-800 transition-colors flex items-center gap-1.5 font-medium cursor-pointer border border-brown-200 hover:border-brown-400 rounded-lg px-3 py-1.5 bg-parchment hover:bg-linen">
               ← New clip
             </button>
           )}
@@ -163,8 +163,14 @@ export default function App() {
 
         {/* ── LOG STREAM ── */}
         {(phase === 'processing' || phase === 'done' || phase === 'error') && logs.length > 0 && (
-          <div className="fade-in-up">
+          <div className="fade-in-up space-y-4">
             <JobProgress logs={logs} phase={phase} error={error} />
+            {phase === 'error' && (
+              <button onClick={handleReset}
+                className="w-full py-3 rounded-xl border border-brown-200 bg-parchment hover:bg-linen hover:border-brown-400 text-brown-700 font-semibold text-sm transition-colors cursor-pointer">
+                ← Start over
+              </button>
+            )}
           </div>
         )}
 
@@ -189,7 +195,7 @@ export default function App() {
         {phase === 'error' && logs.length === 0 && (
           <div className="fade-in-up rounded-2xl border border-red-200 bg-red-50 p-8 text-center space-y-4 shadow-warm-sm">
             <p className="text-red-600 font-semibold">{error}</p>
-            <button onClick={handleReset} className="text-sm text-brown-400 hover:text-brown-700 transition-colors underline underline-offset-2">
+            <button onClick={handleReset} className="text-sm text-brown-500 hover:text-brown-800 transition-colors underline underline-offset-2 cursor-pointer">
               Try again
             </button>
           </div>
