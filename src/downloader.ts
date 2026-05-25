@@ -50,11 +50,12 @@ export function downloadVideo(input: string, tempDir: string): string {
   }
 
   try {
-    execSync(cmd, { stdio: 'inherit' });
+    execSync(cmd, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 10 * 1024 * 1024 });
   } catch (err) {
     const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
-    const detail = (e.stderr?.toString() || e.stdout?.toString() || e.message || '').trim().slice(0, 1000);
-    log.error(`yt-dlp failed: ${detail || '(no output)'}`);
+    const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
+    const lastLines = combined.split('\n').slice(-30).join('\n');
+    log.error(`yt-dlp failed:\n${lastLines || e.message || '(no output)'}`);
     throw new Error('yt-dlp download failed');
   }
 
