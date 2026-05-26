@@ -66,9 +66,8 @@ export function downloadVideo(input: string, tempDir: string): string {
     const proxyFlag = `--proxy "${proxy}"`;
     let directUrls: string[];
     try {
-      // Try tv_embedded first (no login needed for public videos), fall back to cookies if set
-      const clientArgs = `--extractor-args "youtube:player_client=tv_embedded,web"`;
-      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} ${clientArgs} --js-runtimes node --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
+      // bgutil PO token server (port 4416) handles bot detection automatically via yt-dlp plugin
+      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
       const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
       directUrls = output.split('\n').filter(Boolean);
       log.info(`Resolved ${directUrls.length} CDN URL(s) — downloading directly`);

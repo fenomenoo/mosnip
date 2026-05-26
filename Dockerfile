@@ -9,16 +9,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp binary
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-    -o /usr/local/bin/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp
-
-# faster-whisper uses CTranslate2 (not PyTorch) — ~5x smaller than openai-whisper
+# Python venv — install yt-dlp via pip (required for plugin discovery)
+# and bgutil-ytdlp-pot-provider (generates PO tokens to bypass YouTube bot detection)
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip && pip install faster-whisper
+RUN pip install --upgrade pip \
+    && pip install "yt-dlp>=2024.12.13" bgutil-ytdlp-pot-provider faster-whisper
 
-# Pre-download Whisper base model (int8 quantized, ~80MB vs 140MB for fp32)
+# Pre-download Whisper base model
 RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
 
 WORKDIR /app
@@ -37,11 +35,14 @@ RUN cd client && npm run build
 COPY . .
 RUN npx tsc && test -f dist/server/index.js
 
-# Pre-create runtime dirs so container doesn't need to mkdir at startup
+# Pre-create runtime dirs
 RUN mkdir -p /app/output /app/temp
 
 # Prune dev deps after build
 RUN npm prune --omit=dev
 
+COPY scripts/start.sh /start.sh
+RUN chmod +x /start.sh
+
 EXPOSE 3000
-CMD ["node", "dist/server/index.js"]
+CMD ["/start.sh"]
