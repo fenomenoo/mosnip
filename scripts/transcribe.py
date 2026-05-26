@@ -6,7 +6,7 @@ audio_path = sys.argv[1]
 output_path = sys.argv[2]
 srt_path = output_path.replace('.txt', '.srt')
 
-model = WhisperModel("base", device="cpu", compute_type="int8")
+model = WhisperModel("tiny", device="cpu", compute_type="int8")
 segments_gen, _ = model.transcribe(audio_path)
 segments = list(segments_gen)
 

@@ -16,7 +16,7 @@ export async function runPipeline(job: Job, options: ClipOptions = DEFAULT_OPTIO
 
     try {
       const videoPath = downloadVideo(job.input, tempDir);
-      const { transcriptPath, srtPath } = runTranscription(videoPath, tempDir);
+      const { transcriptPath, srtPath } = await runTranscription(videoPath, tempDir);
       const clips = await analyzeTranscript(transcriptPath);
 
       if (clips.length === 0) {
