@@ -44,7 +44,15 @@ export function downloadVideo(input: string, tempDir: string): string {
   const ytCookies = process.env.YOUTUBE_COOKIES;
   if (ytCookies) {
     const cookiesPath = '/tmp/yt-cookies.txt';
-    fs.writeFileSync(cookiesPath, ytCookies, 'utf-8');
+    // Decode base64 if stored that way (multiline cookies encoded for safe CLI transport)
+    let cookiesContent: string;
+    try {
+      const decoded = Buffer.from(ytCookies.trim(), 'base64').toString('utf-8');
+      cookiesContent = decoded.includes('\t') ? decoded : ytCookies;
+    } catch {
+      cookiesContent = ytCookies;
+    }
+    fs.writeFileSync(cookiesPath, cookiesContent, 'utf-8');
     cookiesFlag = `--cookies "${cookiesPath}"`;
     log.info('Using YouTube cookies for authentication');
   }

@@ -29,9 +29,11 @@ if ($size -lt 100) {
     exit 1
 }
 
-Write-Host "Uploading cookies to Railway ($size bytes)..." -ForegroundColor Cyan
 $cookies = Get-Content $cookiesFile -Raw
-railway variables --set "YOUTUBE_COOKIES=$cookies"
+# Base64 encode so multiline content survives the Railway CLI set command
+$cookiesB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($cookies))
+Write-Host "Uploading cookies to Railway ($size bytes, base64)..." -ForegroundColor Cyan
+railway variables --set "YOUTUBE_COOKIES=$cookiesB64"
 
 Remove-Item $cookiesFile -Force
 Write-Host "Done! Railway will redeploy with fresh cookies." -ForegroundColor Green
