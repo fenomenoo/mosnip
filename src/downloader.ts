@@ -10,29 +10,6 @@ export function ensureDir(dir: string): void {
   }
 }
 
-// Call the bgutil PO token server (started by start.sh on port 4416).
-// Returns extractor-args string for yt-dlp, or '' if server unavailable.
-async function getPOTokenArgs(): Promise<string> {
-  try {
-    const res = await fetch('http://localhost:4416/get_po_token', {
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) {
-      log.warn(`bgutil server returned ${res.status} — proceeding without PO token`);
-      return '';
-    }
-    const data = await res.json() as { po_token?: string; visitor_data?: string };
-    if (!data.po_token || !data.visitor_data) {
-      log.warn('bgutil response missing fields — proceeding without PO token');
-      return '';
-    }
-    log.info('PO token acquired from bgutil server');
-    return `--extractor-args "youtube:player_client=web;visitor_data=${data.visitor_data};po_token=${data.po_token}"`;
-  } catch (e) {
-    log.warn(`bgutil server not reachable (${(e as Error).message}) — proceeding without PO token`);
-    return '';
-  }
-}
 
 export async function downloadVideo(input: string, tempDir: string): Promise<string> {
   ensureDir(tempDir);
@@ -70,15 +47,13 @@ export async function downloadVideo(input: string, tempDir: string): Promise<str
   if (proxy) {
     const proxyFlag = `--proxy "${proxy}"`;
 
-    // Get PO token from local bgutil server to bypass YouTube bot detection
-    const potArgs = await getPOTokenArgs();
-    // Fallback: tv_embedded client works for public videos without auth when bgutil unavailable
-    const clientArgs = potArgs ? '' : '--extractor-args "youtube:player_client=tv_embedded,web"';
+    // tv_embedded client bypasses bot detection for public videos without needing cookies
+    const clientArgs = '--extractor-args "youtube:player_client=tv_embedded,web"';
 
     log.info('Resolving video URLs via proxy...');
     let directUrls: string[];
     try {
-      const getUrlCmd = `yt-dlp ${proxyFlag} --js-runtimes node ${potArgs} ${clientArgs} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
+      const getUrlCmd = `yt-dlp ${proxyFlag} --js-runtimes node ${clientArgs} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
       const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
       directUrls = output.split('\n').filter(Boolean);
       log.info(`Resolved ${directUrls.length} CDN URL(s) — downloading directly`);
