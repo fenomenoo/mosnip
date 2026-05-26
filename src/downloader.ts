@@ -53,28 +53,18 @@ export function downloadVideo(input: string, tempDir: string): string {
   const videoPath = path.join(tempDir, 'video.mp4');
 
   if (proxy) {
-    // Cloud mode: proxy only for URL resolution, download video directly (saves bandwidth)
-    log.info('Using proxy for URL resolution');
+    // Cloud mode: full download via proxy
+    log.info('Using proxy for download');
     const proxyFlag = `--proxy "${proxy}"`;
-    log.info('Resolving direct download URL...');
-    let directUrl: string;
+    const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+    const cmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --js-runtimes node -f "best[ext=mp4]/best[height<=1080]" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
     try {
-      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --js-runtimes node --get-url -f "best[ext=mp4]/best[height<=1080]" "${input}"`;
-      const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
-      directUrl = output.split('\n')[0];
-      log.info('Download URL resolved — fetching video directly');
+      execSync(cmd, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 10 * 1024 * 1024 });
     } catch (err) {
       const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
       const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
       log.error(`yt-dlp failed:\n${combined.split('\n').slice(-30).join('\n') || e.message}`);
       throw new Error('yt-dlp download failed');
-    }
-    try {
-      execSync(`curl -L -o "${videoPath}" "${directUrl}"`, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 5 * 1024 * 1024 });
-    } catch (err) {
-      const e = err as { stderr?: Buffer; message?: string };
-      log.error(`curl download failed: ${e.stderr?.toString()?.trim() || e.message}`);
-      throw new Error('Video download failed');
     }
   } else {
     // Local mode: yt-dlp handles everything directly (best quality, no proxy needed)
