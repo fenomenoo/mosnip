@@ -157,7 +157,7 @@ export default function App() {
               <div className="w-2.5 h-2.5 rounded-full bg-yt-red" />
               <div className="absolute inset-0 rounded-full bg-yt-red animate-ping opacity-50" />
             </div>
-            <span className="text-sm font-mono text-brown-400">Pipeline running...</span>
+            <span className="text-sm font-mono text-brown-400">Finding your clips...</span>
           </div>
         )}
 
