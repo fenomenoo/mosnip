@@ -17,7 +17,7 @@ export async function runPipeline(job: Job, options: ClipOptions = DEFAULT_OPTIO
     try {
       const videoPath = downloadVideo(job.input, tempDir);
       const { transcriptPath, srtPath } = await runTranscription(videoPath, tempDir);
-      const clips = await analyzeTranscript(transcriptPath);
+      const clips = await analyzeTranscript(transcriptPath, srtPath);
 
       if (clips.length === 0) {
         throw new Error('No viral clips identified from transcript');

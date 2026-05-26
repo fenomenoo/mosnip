@@ -10,38 +10,72 @@ Analyze transcripts and identify the most compelling, shareable clip moments.
 You ALWAYS respond with valid JSON only. No markdown. No explanation. No code fences.
 Your entire response must be parseable by JSON.parse().`;
 
-function buildUserPrompt(transcript: string): string {
-  return `Analyze this video transcript and identify the top 5 most viral-worthy clip moments.
+interface SrtLine { start: number; end: number; text: string }
 
-TRANSCRIPT:
-${transcript}
+function parseSrtForAnalysis(srtPath: string): SrtLine[] {
+  const raw = fs.readFileSync(srtPath, 'utf-8');
+  const entries: SrtLine[] = [];
+  for (const block of raw.trim().split(/\n\n+/)) {
+    const lines = block.trim().split('\n');
+    if (lines.length < 3) continue;
+    const m = lines[1].match(/(\d+):(\d+):(\d+),(\d+)\s*-->\s*(\d+):(\d+):(\d+),(\d+)/);
+    if (!m) continue;
+    const sec = (h: string, min: string, s: string, ms: string) =>
+      parseInt(h) * 3600 + parseInt(min) * 60 + parseInt(s) + parseInt(ms) / 1000;
+    entries.push({ start: sec(m[1],m[2],m[3],m[4]), end: sec(m[5],m[6],m[7],m[8]), text: lines.slice(2).join(' ') });
+  }
+  return entries;
+}
+
+function buildUserPrompt(transcript: string, srtLines?: SrtLine[]): string {
+  let content: string;
+
+  if (srtLines && srtLines.length > 0) {
+    const lines = srtLines.map(l => `[${l.start.toFixed(1)}s → ${l.end.toFixed(1)}s] ${l.text}`).join('\n');
+    content = `TIMESTAMPED TRANSCRIPT (use these exact seconds for your start/end values):
+${lines}`;
+  } else {
+    content = `TRANSCRIPT (estimate timestamps based on typical speaking pace):
+${transcript}`;
+  }
+
+  return `Analyze this video transcript and identify the most viral-worthy clip moments.
+
+${content}
 
 Respond with ONLY a JSON array. No markdown, no code fences, no extra text before or after.
-Each object in the array must have exactly these fields:
-- start: number (start time in seconds, float)
-- end: number (end time in seconds, float)
+Each object must have exactly these fields:
+- start: number (start time in seconds — must match a timestamp from the transcript above)
+- end: number (end time in seconds — must match a timestamp from the transcript above)
 - title: string (short descriptive title, safe for filenames — only letters, numbers, hyphens, spaces)
 - reason: string (why this moment is compelling and shareable)
 - virality_score: number (integer 1-10, where 10 is most viral)
 
 Rules:
 - Sort by virality_score descending (highest first)
-- Each clip must be at least 15 seconds and at most 90 seconds long
-- Clips must not overlap
-- Return up to 10 clips — for longer videos (30+ min) aim for 8-10 clips, for shorter videos return as many strong moments as exist
-- Spread clips across the full duration of the video, not just the beginning
+- Each clip must be at least 20 seconds and at most 90 seconds long
+- Clips must NOT overlap — ensure start times are well separated
+- Return up to 10 clips — for longer videos (30+ min) aim for 8-10 clips spread across the full video
+- Spread clips across the FULL duration, not just the beginning or end
 
-Example of valid response format:
-[{"start":12.5,"end":45.2,"title":"Shocking Reveal Moment","reason":"Unexpected twist that drives shares","virality_score":9},{"start":90.0,"end":130.0,"title":"Hilarious Reaction","reason":"Relatable and funny","virality_score":7}]`;
+Example: [{"start":12.5,"end":52.0,"title":"Shocking Reveal Moment","reason":"Unexpected twist","virality_score":9}]`;
 }
 
-export async function analyzeTranscript(transcriptPath: string): Promise<ClipMoment[]> {
+export async function analyzeTranscript(transcriptPath: string, srtPath?: string): Promise<ClipMoment[]> {
   log.step('Analyzing transcript with Claude AI');
 
   const transcript = fs.readFileSync(transcriptPath, 'utf-8');
   log.info(`Transcript loaded: ${transcript.length} characters`);
+
+  let srtLines: SrtLine[] | undefined;
+  if (srtPath && fs.existsSync(srtPath)) {
+    srtLines = parseSrtForAnalysis(srtPath);
+    log.info(`SRT loaded: ${srtLines.length} timed segments — Claude will use exact timestamps`);
+  } else {
+    log.warn('No SRT available — Claude will estimate timestamps (less accurate)');
+  }
+
   log.info(`Model: ${MODEL}`);
-  log.info(`Requesting top 5 viral clip moments...`);
 
   const client = new Anthropic();
 
@@ -56,7 +90,7 @@ export async function analyzeTranscript(transcriptPath: string): Promise<ClipMom
       messages: [
         {
           role: 'user',
-          content: buildUserPrompt(transcript),
+          content: buildUserPrompt(transcript, srtLines),
         },
       ],
     });
@@ -115,7 +149,15 @@ export async function analyzeTranscript(transcriptPath: string): Promise<ClipMom
   }
 
   clips.sort((a, b) => b.virality_score - a.virality_score);
-  clips = clips.slice(0, 10);
+
+  // Remove overlapping clips — keep higher-scoring one, drop any that overlap by >5s
+  const deduped: ClipMoment[] = [];
+  for (const clip of clips) {
+    const overlaps = deduped.some(kept => clip.start < kept.end - 5 && clip.end > kept.start + 5);
+    if (!overlaps) deduped.push(clip);
+    else log.warn(`Dropping overlapping clip: "${clip.title}" (${clip.start.toFixed(1)}s → ${clip.end.toFixed(1)}s)`);
+  }
+  clips = deduped.slice(0, 10);
 
   log.success(`Identified ${clips.length} viral clip moments:`);
   clips.forEach((clip, idx) => {

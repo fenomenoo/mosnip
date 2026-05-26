@@ -76,7 +76,7 @@ async function main(): Promise<void> {
     const { transcriptPath, srtPath } = await runTranscription(videoPath, tempDir);
 
     log.step('[3/4] Analyzing transcript');
-    const clips = await analyzeTranscript(transcriptPath);
+    const clips = await analyzeTranscript(transcriptPath, srtPath);
     if (clips.length === 0) {
       log.warn('No clips identified.');
       await cleanup(tempDir);
