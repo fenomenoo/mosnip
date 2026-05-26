@@ -53,18 +53,51 @@ export function downloadVideo(input: string, tempDir: string): string {
   const videoPath = path.join(tempDir, 'video.mp4');
 
   if (proxy) {
-    // Cloud mode: full download via proxy
-    log.info('Using proxy for download');
+    // Cloud mode: proxy only for URL resolution (~10KB), download CDN URLs directly (saves bandwidth)
+    log.info('Resolving video URLs via proxy...');
     const proxyFlag = `--proxy "${proxy}"`;
-    const outputTemplate = path.join(tempDir, 'video.%(ext)s');
-    const cmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --js-runtimes node -f "best[ext=mp4]/best[height<=1080]" --merge-output-format mp4 -o "${outputTemplate}" "${input}"`;
+    let directUrls: string[];
     try {
-      execSync(cmd, { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 10 * 1024 * 1024 });
+      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --js-runtimes node --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
+      const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
+      directUrls = output.split('\n').filter(Boolean);
+      log.info(`Resolved ${directUrls.length} CDN URL(s) — downloading directly`);
     } catch (err) {
       const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
       const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
-      log.error(`yt-dlp failed:\n${combined.split('\n').slice(-30).join('\n') || e.message}`);
+      log.error(`yt-dlp URL resolution failed:\n${combined.split('\n').slice(-20).join('\n') || e.message}`);
       throw new Error('yt-dlp download failed');
+    }
+
+    if (directUrls.length === 1) {
+      // Progressive stream — download directly without proxy
+      log.info('Downloading progressive stream...');
+      try {
+        execSync(`yt-dlp --no-playlist -o "${videoPath}" "${directUrls[0]}"`, { stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 });
+      } catch (err) {
+        const e = err as { stderr?: Buffer; message?: string };
+        log.error(`Direct download failed: ${e.stderr?.toString()?.trim() || e.message}`);
+        throw new Error('Video download failed');
+      }
+    } else if (directUrls.length >= 2) {
+      // DASH streams — download video+audio separately then merge
+      log.info('Downloading DASH video+audio streams...');
+      const videoRaw = path.join(tempDir, 'video_raw.mp4');
+      const audioRaw = path.join(tempDir, 'audio_raw.m4a');
+      try {
+        execSync(`yt-dlp --no-playlist -o "${videoRaw}" "${directUrls[0]}"`, { stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 });
+        execSync(`yt-dlp --no-playlist -o "${audioRaw}" "${directUrls[1]}"`, { stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 });
+        execSync(`ffmpeg -y -i "${videoRaw}" -i "${audioRaw}" -c copy "${videoPath}"`, { stdio: 'pipe' });
+      } catch (err) {
+        const e = err as { stderr?: Buffer; message?: string };
+        log.error(`DASH download/merge failed: ${e.stderr?.toString()?.trim() || e.message}`);
+        throw new Error('Video download failed');
+      } finally {
+        if (fs.existsSync(videoRaw)) fs.unlinkSync(videoRaw);
+        if (fs.existsSync(audioRaw)) fs.unlinkSync(audioRaw);
+      }
+    } else {
+      throw new Error('No download URLs resolved from yt-dlp');
     }
   } else {
     // Local mode: yt-dlp handles everything directly (best quality, no proxy needed)
