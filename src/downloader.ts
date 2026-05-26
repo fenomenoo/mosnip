@@ -59,7 +59,7 @@ export function downloadVideo(input: string, tempDir: string): string {
     log.info('Resolving direct download URL...');
     let directUrl: string;
     try {
-      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --get-url -f "best[ext=mp4]/best[height<=1080]" "${input}"`;
+      const getUrlCmd = `yt-dlp ${cookiesFlag} ${proxyFlag} --js-runtimes node --get-url -f "best[ext=mp4]/best[height<=1080]" "${input}"`;
       const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
       directUrl = output.split('\n')[0];
       log.info('Download URL resolved — fetching video directly');
