@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --upgrade pip \
-    && pip install "yt-dlp>=2024.12.13" faster-whisper
+    && pip install "yt-dlp>=2024.12.13" faster-whisper "bgutil-ytdlp-pot-provider"
 
 # Pre-download Whisper base model
 RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"

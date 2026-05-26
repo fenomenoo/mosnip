@@ -47,8 +47,8 @@ export async function downloadVideo(input: string, tempDir: string): Promise<str
   if (proxy) {
     const proxyFlag = `--proxy "${proxy}"`;
 
-    // tv_embedded client bypasses bot detection for public videos without needing cookies
-    const clientArgs = '--extractor-args "youtube:player_client=tv_embedded,web"';
+    // web_creator client + bgutil PO token plugin bypasses bot detection
+    const clientArgs = '--extractor-args "youtube:player_client=web_creator,web"';
 
     log.info('Resolving video URLs via proxy...');
     let directUrls: string[];
