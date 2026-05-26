@@ -70,7 +70,7 @@ async function main(): Promise<void> {
 
   try {
     log.step('[1/4] Downloading video');
-    const videoPath = downloadVideo(input, tempDir);
+    const videoPath = await downloadVideo(input, tempDir);
 
     log.step('[2/4] Transcribing');
     const { transcriptPath, srtPath } = await runTranscription(videoPath, tempDir);
