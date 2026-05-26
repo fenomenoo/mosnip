@@ -53,14 +53,14 @@ export async function downloadVideo(input: string, tempDir: string): Promise<str
     log.info('Resolving video URLs via proxy...');
     let directUrls: string[];
     try {
-      const getUrlCmd = `yt-dlp ${proxyFlag} --js-runtimes node ${clientArgs} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
-      const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
-      directUrls = output.split('\n').filter(Boolean);
+      const getUrlCmd = `yt-dlp ${proxyFlag} --js-runtimes node --verbose ${clientArgs} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
+      const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 4 * 1024 * 1024 }).toString().trim();
+      directUrls = output.split('\n').filter(l => l.startsWith('http'));
       log.info(`Resolved ${directUrls.length} CDN URL(s) — downloading directly`);
     } catch (err) {
       const e = err as { stderr?: Buffer; stdout?: Buffer; message?: string };
       const combined = ((e.stderr?.toString() ?? '') + (e.stdout?.toString() ?? '')).trim();
-      log.error(`yt-dlp URL resolution failed:\n${combined.split('\n').slice(-20).join('\n') || e.message}`);
+      log.error(`yt-dlp URL resolution failed:\n${combined || e.message}`);
       throw new Error('yt-dlp download failed');
     }
 
