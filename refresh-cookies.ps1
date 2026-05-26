@@ -1,28 +1,38 @@
-# Refresh YouTube cookies in Railway — run this whenever yt-dlp says cookies expired
-# Prerequisites (one-time setup):
-#   npm install -g @railway/cli
-#   railway login
-#   railway link   (run inside this project folder)
+# Refresh YouTube cookies in Railway
+#
+# HOW TO USE:
+#   1. Install "Get cookies.txt LOCALLY" extension in Chrome
+#      https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc
+#   2. Go to youtube.com (make sure you're logged in)
+#   3. Click the extension icon → Export → save the file as "cookies.txt" inside this folder
+#   4. Run this script:  .\refresh-cookies.ps1
+#   5. Done — cookies.txt is deleted automatically
 
-$tempCookies = "$env:TEMP\yt-cookies.txt"
+$cookiesFile = Join-Path $PSScriptRoot "cookies.txt"
 
-Write-Host "Reading YouTube cookies from Chrome..." -ForegroundColor Cyan
-yt-dlp --cookies-from-browser chrome --cookies $tempCookies --skip-download "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --quiet 2>$null
-
-if (-not (Test-Path $tempCookies)) {
-    Write-Host "Failed to read cookies from Chrome. Make sure Chrome is installed and you're logged into YouTube." -ForegroundColor Red
+if (-not (Test-Path $cookiesFile)) {
+    Write-Host ""
+    Write-Host "cookies.txt not found." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Steps:" -ForegroundColor Yellow
+    Write-Host "  1. Install 'Get cookies.txt LOCALLY' in Chrome"
+    Write-Host "  2. Go to youtube.com while logged in"
+    Write-Host "  3. Click the extension → Export → save as cookies.txt in this folder:"
+    Write-Host "     $PSScriptRoot" -ForegroundColor Cyan
+    Write-Host "  4. Run this script again"
     exit 1
 }
 
-$cookies = Get-Content $tempCookies -Raw
-if ([string]::IsNullOrWhiteSpace($cookies)) {
-    Write-Host "Cookies file is empty. Try closing Chrome first, then run again." -ForegroundColor Red
+$size = (Get-Item $cookiesFile).Length
+if ($size -lt 100) {
+    Write-Host "cookies.txt looks empty or invalid. Re-export from the extension." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "Uploading cookies to Railway..." -ForegroundColor Cyan
-$env:RAILWAY_COOKIES = $cookies
+Write-Host "Uploading cookies to Railway ($size bytes)..." -ForegroundColor Cyan
+$cookies = Get-Content $cookiesFile -Raw
 railway variables --set "YOUTUBE_COOKIES=$cookies"
 
-Remove-Item $tempCookies -Force
-Write-Host "Done! Railway will redeploy automatically with fresh cookies." -ForegroundColor Green
+Remove-Item $cookiesFile -Force
+Write-Host "Done! Railway will redeploy with fresh cookies." -ForegroundColor Green
+Write-Host "cookies.txt deleted." -ForegroundColor Gray
