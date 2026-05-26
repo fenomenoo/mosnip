@@ -72,11 +72,13 @@ export async function downloadVideo(input: string, tempDir: string): Promise<str
 
     // Get PO token from local bgutil server to bypass YouTube bot detection
     const potArgs = await getPOTokenArgs();
+    // Fallback: tv_embedded client works for public videos without auth when bgutil unavailable
+    const clientArgs = potArgs ? '' : '--extractor-args "youtube:player_client=tv_embedded,web"';
 
     log.info('Resolving video URLs via proxy...');
     let directUrls: string[];
     try {
-      const getUrlCmd = `yt-dlp ${proxyFlag} --js-runtimes node ${potArgs} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
+      const getUrlCmd = `yt-dlp ${proxyFlag} --js-runtimes node ${potArgs} ${clientArgs} --get-url -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best[height<=1080]" "${input}"`;
       const output = execSync(getUrlCmd, { stdio: 'pipe', maxBuffer: 2 * 1024 * 1024 }).toString().trim();
       directUrls = output.split('\n').filter(Boolean);
       log.info(`Resolved ${directUrls.length} CDN URL(s) — downloading directly`);
